@@ -1,0 +1,34 @@
+erDiagram
+    USERS ||--o| USER_SCORES : has
+    USERS ||--o{ ACTIONS : starts
+    ACTIONS ||--o| SCORE_EVENTS : "awards (at most once)"
+    USERS ||--o{ SCORE_EVENTS : earns
+
+    USERS {
+        string id PK
+        string display_name
+    }
+    USER_SCORES {
+        string user_id PK
+        bigint score
+        timestamp score_reached_at "for tie-breaking"
+        timestamp updated_at
+    }
+    ACTIONS {
+        string id PK "ULID, unguessable"
+        string user_id FK
+        string type
+        enum status "started | completed | expired"
+        timestamp started_at
+        timestamp expires_at
+        timestamp completed_at
+    }
+    SCORE_EVENTS {
+        bigint id PK
+        string user_id FK
+        string action_id FK "UNIQUE"
+        int points
+        string ip
+        string user_agent
+        timestamp created_at
+    }

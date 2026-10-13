@@ -1,0 +1,28 @@
+---
+config:
+  layout: elk
+---
+flowchart TD
+    A["POST /actions/:id/complete"] --> B{"Valid JWT?"}
+    B -- no --> E401["401 UNAUTHENTICATED"]
+    B -- yes --> C{"Within rate limit?"}
+    C -- no --> E429["429 RATE_LIMITED"]
+    C -- yes --> D{"Action exists and<br/>belongs to user?"}
+    D -- no --> E404["404 ACTION_NOT_FOUND<br/>same response for 'not yours',<br/>so ids cannot be probed"]
+    D -- yes --> F{"Action status?"}
+    F -- "already completed" --> R200["200 original result<br/>applied: false<br/>(idempotent retry, no new points)"]
+    F -- started --> G{"now < expires_at?"}
+    F -- expired --> E409["409 ACTION_EXPIRED"]
+    G -- no --> E409
+    G -- yes --> H{"now − started_at ≥<br/>MIN_ACTION_DURATION?"}
+    H -- no --> E422["422 ACTION_TOO_FAST<br/>(flagged for review)"]
+    H -- yes --> OK["✅ Award points<br/>(§4.1, step 10 onwards)"]
+
+    classDef check fill:#e3f2fd,stroke:#1e88e5,color:#0d47a1
+    classDef reject fill:#ffebee,stroke:#e53935,color:#b71c1c
+    classDef replay fill:#fff8e1,stroke:#f9a825,color:#6d4c00
+    classDef success fill:#e8f5e9,stroke:#43a047,color:#1b5e20
+    class A,B,C,D,F,G,H check
+    class E401,E429,E404,E409,E422 reject
+    class R200 replay
+    class OK success

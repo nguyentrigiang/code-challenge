@@ -1,0 +1,56 @@
+# Example requests for the VS Code "REST Client" extension or JetBrains HTTP Client.
+# Start the server first: npm run seed && npm run dev
+
+@baseUrl = http://localhost:3000/api/products
+
+### Create a product
+# @name created
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "sku": "HP-001",
+  "name": "Noise-cancelling Headphones",
+  "description": "Over-ear, Bluetooth 5.3",
+  "category": "electronics",
+  "price": 149.99,
+  "stock": 30
+}
+
+### List: active electronics under 100, cheapest first
+GET {{baseUrl}}?category=electronics&status=active&maxPrice=100&sort=price
+
+### List: search + pagination
+GET {{baseUrl}}?search=desk&page=1&limit=5
+
+### Get one
+GET {{baseUrl}}/{{created.response.body.data.id}}
+
+### Update (partial). If-Match makes it conditional: 412 if someone changed it meanwhile
+PATCH {{baseUrl}}/{{created.response.body.data.id}}
+Content-Type: application/json
+If-Match: "1"
+
+{
+  "price": 129.99,
+  "stock": 25
+}
+
+### Delete
+DELETE {{baseUrl}}/{{created.response.body.data.id}}
+
+### Validation error example (400)
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "sku": "bad sku!",
+  "name": "",
+  "price": -1
+}
+
+### API docs (open in a browser): http://localhost:3000/docs
+GET http://localhost:3000/openapi.json
+
+### Health check
+GET http://localhost:3000/health

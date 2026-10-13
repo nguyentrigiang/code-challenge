@@ -1,0 +1,43 @@
+---
+config:
+  layout: elk
+---
+flowchart TB
+    UI["🖥️ Website<br/>scoreboard + action button"]
+
+    LB["Load balancer / API gateway<br/>TLS · rate limiting"]
+
+    subgraph API["API service · N stateless instances"]
+        direction TB
+        AUTH["Auth middleware<br/>verify JWT → userId"]
+        ACT["Action controller<br/>POST /actions"]
+        SCORE["Score controller<br/>POST /actions/:id/complete"]
+        BOARD["Scoreboard controller<br/>GET /scoreboard"]
+        STREAM["Live stream controller<br/>GET /scoreboard/stream (SSE)"]
+        SVC["Scoreboard service<br/>validation · transaction · change detection"]
+    end
+
+    subgraph Data["Data stores"]
+        direction LR
+        DB[("Relational DB<br/>source of truth")]
+        REDIS[("Redis<br/>ZSET leaderboard + pub/sub")]
+    end
+
+    UI -- "① HTTPS requests" --> LB
+    LB --> AUTH
+    AUTH --> ACT & SCORE & BOARD & STREAM
+    ACT & SCORE & BOARD --> SVC
+    SVC -- "② DB transaction" --> DB
+    SVC -- "③ ZADD / ZREVRANGE" --> REDIS
+    SVC -- "④ PUBLISH scoreboard:updates" --> REDIS
+    STREAM -. "⑤ ↑ SUBSCRIBE: Redis pushes the update to every instance" .- REDIS
+    UI -. "⑥ ↑ server-sent event pushes the new top 10 to the browser" .- STREAM
+
+    classDef client fill:#e3f2fd,stroke:#1e88e5,color:#0d47a1
+    classDef edge fill:#f3e5f5,stroke:#8e24aa,color:#4a148c
+    classDef api fill:#e8f5e9,stroke:#43a047,color:#1b5e20
+    classDef store fill:#fff3e0,stroke:#fb8c00,color:#e65100
+    class UI client
+    class LB edge
+    class AUTH,ACT,SCORE,BOARD,STREAM,SVC api
+    class DB,REDIS store

@@ -1,0 +1,33 @@
+sequenceDiagram
+    autonumber
+    actor U as User (browser)
+    participant API as API service
+    participant DB as Database
+    participant R as Redis
+    participant V as Other viewers (SSE)
+
+    U->>API: POST /api/v1/actions (Bearer JWT)
+    API->>API: Verify JWT, rate limit per user
+    API->>DB: INSERT action (id, user_id, status='started', expires_at)
+    API-->>U: 201 { actionId, expiresAt }
+
+    Note over U: User performs the action
+
+    U->>API: POST /api/v1/actions/{actionId}/complete<br/>(Bearer JWT)
+    API->>API: Verify JWT, rate limit per user
+    API->>DB: BEGIN
+    API->>DB: SELECT action FOR UPDATE
+    API->>API: Check owner = user, status = 'started',<br/>not expired, min duration elapsed
+    API->>DB: UPDATE action SET status='completed'
+    API->>DB: INSERT score_event (action_id UNIQUE, points)
+    API->>DB: UPDATE user_scores SET score = score + points
+    API->>DB: COMMIT
+    API->>R: ZADD leaderboard {rankValue(newTotal)} {userId}
+    API->>R: ZREVRANGE leaderboard 0 9
+    alt Top 10 changed
+        API->>R: PUBLISH scoreboard:updates {top10, version}
+    end
+    API-->>U: 200 { applied: true, pointsAwarded, score, rank }
+    R-->>API: message on scoreboard:updates (every instance)
+    API-->>V: SSE event "scoreboard" {top10, version}
+    API-->>U: SSE event "scoreboard" {top10, version}

@@ -1,0 +1,17 @@
+sequenceDiagram
+    autonumber
+    actor V as Viewer (browser)
+    participant API as API service
+    participant R as Redis
+
+    V->>API: GET /api/v1/scoreboard
+    API->>R: ZREVRANGE leaderboard 0 9 WITHSCORES
+    API-->>V: 200 { top10, version }
+    V->>API: GET /api/v1/scoreboard/stream (EventSource)
+    API-->>V: SSE "scoreboard" (current snapshot)
+    loop On every top-10 change
+        API-->>V: SSE "scoreboard" {top10, version}
+    end
+    loop Every 15s
+        API-->>V: SSE comment ": ping" (keeps proxies from closing the connection)
+    end
